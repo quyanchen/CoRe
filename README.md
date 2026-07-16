@@ -2,8 +2,6 @@
 
 **Learning Event-Conditioned Drug Roles via Reciprocal Motif–Context Refinement for Drug–Drug Interaction Prediction**
 
-This repository provides the PyTorch implementation of **CoRe**, a framework for fine-grained drug–drug interaction (DDI) event prediction. CoRe jointly models pair-conditioned molecular evidence and candidate-event-dependent drug roles through reciprocal motif–context refinement and event-conditioned bilateral role inference.
-
 ## Overview
 
 CoRe consists of three main components:
@@ -12,35 +10,21 @@ CoRe consists of three main components:
 2. **Reciprocal motif–context refinement.** Pair-context and drug-side summary tokens recalibrate motif representations, and the refined motifs are subsequently used to update the pair context.
 3. **Event-conditioned bilateral role inference.** Each candidate DDI event independently retrieves motif-level evidence from the two drugs, constructs event- and partner-conditioned drug roles, and scores the resulting event–drug–drug triplet.
 
-The model is trained with class-weighted event prediction and auxiliary objectives for triplet–role alignment, role regularization, contextual role separation, and counterfactual motif fidelity.
-
 ## Requirements
 
-The implementation requires Python 3.9 or later and the following packages:
-
-- PyTorch
-- PyTorch Geometric
-- RDKit
-- pandas
-- scikit-learn
-- tqdm
+The implementation requires Python 3.11.
 
 A minimal environment can be created as follows:
 
 ```bash
-conda create -n core python=3.10 -y
-conda activate core
-conda install -c conda-forge rdkit -y
-pip install torch torch-geometric pandas scikit-learn tqdm
+python -m pip install -r requirements.txt
 ```
-
-Install a PyTorch build compatible with your CUDA environment when using a GPU.
 
 ## Repository Structure
 
 ```text
 CoRe-main/
-├── role_molddi/
+├── code/
 │   ├── chem_graph.py      # BRICS fragmentation and pair-graph construction
 │   ├── data.py            # Dataset loading and mini-batch collation
 │   ├── model.py           # CoRe architecture and auxiliary objectives
@@ -100,32 +84,10 @@ Run CoRe from the repository root.
 ### Standard setting: S1
 
 ```bash
-python -m role_molddi.train \
+python -m code.train \
   --dataset-root data/Deng \
   --scenario s1 \
   --fold 0 \
-  --device cuda
-```
-
-### Single-unseen-drug setting: S2
-
-```bash
-python -m role_molddi.train \
-  --dataset-root data/Deng \
-  --scenario s2 \
-  --fold 0 \
-  --cold-seed 42 \
-  --device cuda
-```
-
-### Double-unseen-drug setting: S3
-
-```bash
-python -m role_molddi.train \
-  --dataset-root data/Deng \
-  --scenario s3 \
-  --fold 0 \
-  --cold-seed 42 \
   --device cuda
 ```
 
@@ -135,7 +97,7 @@ To evaluate all five folds:
 
 ```bash
 for fold in 0 1 2 3 4; do
-  python -m role_molddi.train \
+  python -m code.train \
     --dataset-root data/Deng \
     --scenario s1 \
     --fold ${fold} \
@@ -154,8 +116,8 @@ The released configuration follows the main experimental setup:
 | Reciprocal refinement layers | 3 |
 | Attention heads | 4 |
 | Dropout | 0.2 |
-| Batch size | 32 |
-| Learning rate | 2e-4 |
+| Batch size | 128 |
+| Learning rate | 5e-4 |
 | Weight decay | 1e-5 |
 | Maximum epochs | 100 |
 | Early-stopping patience | 30 |
@@ -164,7 +126,7 @@ The released configuration follows the main experimental setup:
 All major hyperparameters can be changed through command-line arguments. Run the following command for the complete option list:
 
 ```bash
-python -m role_molddi.train --help
+python -m code.train --help
 ```
 
 ## Outputs
@@ -177,22 +139,3 @@ cache/   # Persistent per-drug BRICS fragment graph caches
 ```
 
 The training log reports Accuracy, Macro-F1, Macro-Recall, and Macro-Precision. Model selection is based on validation Macro-F1, and the final checkpoint name includes the test Macro-F1 score.
-
-## Main Results
-
-Macro-F1 under the standard S1 setting:
-
-| Dataset | CoRe |
-|---|---:|
-| Deng | 82.52 |
-| Ryu | 92.01 |
-
-Please refer to the paper for complete results under standard, unseen-drug, and long-tail evaluation protocols, as well as ablation and case-study analyses.
-
-## Citation
-
-Citation information will be added after publication. If this code is useful in your research, please cite the corresponding CoRe paper.
-
-## Contact
-
-For questions or issues, please use the GitHub issue tracker.
