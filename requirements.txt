@@ -1,0 +1,14 @@
+torch==2.10.0
+torchvision==0.25.0
+torchaudio==2.10.0
+torch-geometric==2.8.0
+pyg_lib
+torch_scatter
+torch_sparse
+numpy==1.26.4
+scipy==1.13.1
+scikit-learn==1.6.1
+networkx==3.1
+rdkit==2025.9.1
+pandas==2.3.3
+tqdm==4.67.1
