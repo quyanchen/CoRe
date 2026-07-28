@@ -75,14 +75,6 @@ def build_cold_splits(
     output_root: str | None = None,
     overwrite: bool = False,
 ) -> str:
-    """Build S2/S3 cold-start splits.
-
-    S2: old-drug/new-drug valid/test pairs contain exactly one unknown drug.
-    S3: new-drug/new-drug valid/test pairs contain two unknown drugs.
-
-    Training contains only known-known pairs. Validation and test are split from
-    the cold pool so both follow the requested cold-start distribution.
-    """
     scenario = str(scenario).lower().strip()
     if scenario not in {"s2", "s3"}:
         raise ValueError(f"scenario must be s2 or s3, got: {scenario}")
