@@ -30,12 +30,6 @@ def morgan_fingerprint(smiles: str, radius: int = 2, n_bits: int = 2048) -> torc
 
 
 def brics_fragment_graph(smiles: str, n_bits: int = 2048) -> Data:
-    """Build a MolecBioNet-style BRICS substructure graph for one molecule.
-
-    Nodes are BRICS fragments represented by Morgan fingerprints. Edges connect
-    fragments that are adjacent in the original molecule. A one-fragment fallback
-    keeps unusual SMILES usable.
-    """
     mol = _safe_mol_from_smiles(smiles)
     try:
         fragmented_mol = Chem.FragmentOnBRICSBonds(mol)
@@ -74,11 +68,6 @@ def brics_fragment_graph(smiles: str, n_bits: int = 2048) -> Data:
 
 
 def merge_drug_pair_graph(graph_a: Data, graph_b: Data) -> Data:
-    """Merge two BRICS fragment graphs into a pair-level HIG.
-
-    The output follows MolecBioNet's molecular branch: intra-drug edges preserve
-    BRICS adjacency and cross edges fully connect fragments across the two drugs.
-    """
     n_a = int(graph_a.num_nodes)
     n_b = int(graph_b.num_nodes)
 
@@ -113,8 +102,6 @@ def merge_drug_pair_graph(graph_a: Data, graph_b: Data) -> Data:
 
 
 class FragmentGraphBank:
-    """Lazy in-memory cache with optional persistent per-drug graph cache."""
-
     def __init__(self, drug_to_smiles: Dict[str, str], n_bits: int = 2048, cache_path: Optional[str] = None):
         self.drug_to_smiles = drug_to_smiles
         self.n_bits = n_bits
