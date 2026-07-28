@@ -49,6 +49,11 @@ def split_paths(dataset_root: str, fold: int, scenario: str = "s1", cold_seed: i
         )
     if scenario != "s1":
         raise ValueError(f"Unsupported scenario: {scenario}")
+
+    direct_paths = tuple(os.path.join(dataset_root, name) for name in ("train.csv", "valid.csv", "test.csv"))
+    if all(os.path.exists(path) for path in direct_paths):
+        return direct_paths
+
     fold_dir = os.path.join(dataset_root, str(fold))
     if "Deng" in os.path.basename(os.path.normpath(dataset_root)):
         return (
@@ -112,7 +117,10 @@ def build_datasets(
     train_path, valid_path, test_path = split_paths(dataset_root, fold, scenario=scenario, cold_seed=cold_seed)
     cache_path = None
     if cache_dir:
-        dataset_name = os.path.basename(os.path.normpath(dataset_root))
+        root = os.path.normpath(dataset_root)
+        dataset_name = os.path.basename(root)
+        if os.path.exists(os.path.join(root, "train.csv")):
+            dataset_name = f"{os.path.basename(os.path.dirname(root))}_{dataset_name}"
         cache_path = os.path.join(cache_dir, f"{dataset_name}_drug_fragments_{n_bits}.pt")
     graph_bank = FragmentGraphBank(smiles, n_bits=n_bits, cache_path=cache_path)
     if cache_path:
