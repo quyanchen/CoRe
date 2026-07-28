@@ -72,9 +72,7 @@ class HIGConv(nn.Module):
         return self.norm(h + self.dropout(F.gelu(out)))
 
 
-class MolecBioNetHIGEncoder(nn.Module):
-    """MolecBioNet molecular branch rewritten in PyG."""
-
+class HIGEncoder(nn.Module):
     def __init__(self, in_dim: int = 2048, hidden_dim: int = 256, num_layers: int = 3, num_heads: int = 4, dropout: float = 0.1):
         super().__init__()
         self.input_proj = nn.Sequential(nn.Linear(in_dim, hidden_dim), nn.GELU(), nn.LayerNorm(hidden_dim))
@@ -111,13 +109,6 @@ class FeedForward(nn.Module):
 
 
 class SharedReciprocalMotifBlock(nn.Module):
-    """Heavy pair-level motif evidence encoder that runs once per drug pair.
-
-    It keeps the HRT spirit but removes per-relation repetition: pair summary
-    tokens guide motif refinement, then refined motifs update the pair tokens.
-    Relation-specific roles are inferred later by a lightweight readout.
-    """
-
     def __init__(self, hidden_dim: int, num_heads: int, dropout: float):
         super().__init__()
         self.summary_to_motif = nn.MultiheadAttention(hidden_dim, num_heads, dropout=dropout, batch_first=True)
@@ -159,12 +150,6 @@ class SharedReciprocalMotifBlock(nn.Module):
 
 
 class TripletRoleDDIModel(nn.Module):
-    """Scalable triplet-conditioned molecular role model.
-
-    Heavy motif-pair evidence is encoded once. All relation-conditioned roles
-    are then read out in parallel using lightweight relation queries.
-    """
-
     def __init__(
         self,
         num_relations: int,
@@ -182,7 +167,7 @@ class TripletRoleDDIModel(nn.Module):
         self.hidden_dim = hidden_dim
         self.num_relations = num_relations
         self.fusion_dim = fusion_dim
-        self.encoder = MolecBioNetHIGEncoder(frag_dim, hidden_dim, hig_layers, num_heads, dropout)
+        self.encoder = HIGEncoder(frag_dim, hidden_dim, hig_layers, num_heads, dropout)
         self.rel_emb = nn.Embedding(num_relations, hidden_dim)
         self.summary_init = nn.Sequential(nn.Linear(hidden_dim * 3, hidden_dim), nn.GELU(), nn.LayerNorm(hidden_dim))
         self.summary_blocks = nn.ModuleList(
@@ -298,17 +283,6 @@ class TripletRoleDDIModel(nn.Module):
         side_value: int,
         evidence_keep_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Retrieve relation-conditioned evidence from one drug side.
-
-        ``evidence_keep_mask`` is a boolean tensor of shape
-        ``[num_nodes, num_relations]``. A ``False`` entry prevents that motif
-        from serving as evidence for the corresponding candidate relation.
-        Attention is re-normalized over the remaining motifs independently for
-        every graph, drug side, and relation.
-
-        This mask changes no learnable parameters and is therefore compatible
-        with checkpoints trained before the argument was introduced.
-        """
         batch_size, num_relations, hidden_dim = query.shape
         key = self.evidence_key(node_h)
         scores = (key.unsqueeze(1) * query[graph_id]).sum(dim=-1) / (hidden_dim ** 0.5)
