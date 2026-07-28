@@ -25,11 +25,11 @@ python -m pip install -r requirements.txt
 ```text
 CoRe-main/
 ├── code/
-│   ├── chem_graph.py      # BRICS fragmentation and pair-graph construction
-│   ├── data.py            # Dataset loading and mini-batch collation
-│   ├── model.py           # CoRe architecture and auxiliary objectives
-│   ├── train.py           # Training and evaluation entry point
-│   └── cold_splits.py     # S2/S3 cold-start split construction
+│   ├── chem_graph.py
+│   ├── data.py
+│   ├── model.py
+│   ├── train.py
+│   └── cold_splits.py
 └── README.md
 ```
 
@@ -134,8 +134,8 @@ python -m code.train --help
 By default, training artifacts are written to:
 
 ```text
-run/     # Logs and validation-selected checkpoints
-cache/   # Persistent per-drug BRICS fragment graph caches
+run/
+cache/
 ```
 
 The training log reports Accuracy, Macro-F1, Macro-Recall, and Macro-Precision. Model selection is based on validation Macro-F1, and the final checkpoint name includes the test Macro-F1 score.
