@@ -1,6 +1,7 @@
 import argparse
 import csv
 import random
+import shutil
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -14,9 +15,17 @@ MIN_TEST = 1
 MIN_TRAIN = 3
 MIN_TAIL = 3
 
-DEFAULT_PAIRS = {
-    "deng": Path("./data/primekg+deng/ddi/newddixiao-1.csv"),
-    "ryu": Path("./data/primekg+ryu/ddi/newddixiao-1.csv"),
+DEFAULT_DATASETS = {
+    "deng": {
+        "name": "Deng",
+        "pairs": Path("./data/primekg+deng/ddi/newddixiao-1.csv"),
+        "smiles": Path("./data/Deng/drug_smiles.csv"),
+    },
+    "ryu": {
+        "name": "Ryu",
+        "pairs": Path("./data/primekg+ryu/ddi/newddixiao-1.csv"),
+        "smiles": Path("./data/Ryu/drug_smiles.csv"),
+    },
 }
 
 
@@ -46,28 +55,28 @@ def split_by_class(rows: list[Row], seed: int) -> tuple[dict[int, list[Row]], li
         grouped[row[1]].append(row)
 
     train_pool: dict[int, list[Row]] = {}
-    validation: list[Row] = []
+    valid: list[Row] = []
     test: list[Row] = []
 
     for relation, class_rows in sorted(grouped.items()):
         rng.shuffle(class_rows)
-        n_val = max(MIN_VAL, round(len(class_rows) * VAL_RATIO))
+        n_valid = max(MIN_VAL, round(len(class_rows) * VAL_RATIO))
         n_test = max(MIN_TEST, round(len(class_rows) * TEST_RATIO))
-        while len(class_rows) - n_val - n_test < MIN_TRAIN:
+        while len(class_rows) - n_valid - n_test < MIN_TRAIN:
             if n_test > MIN_TEST:
                 n_test -= 1
-            elif n_val > MIN_VAL:
-                n_val -= 1
+            elif n_valid > MIN_VAL:
+                n_valid -= 1
             else:
                 raise ValueError(f"Relation {relation} has too few samples")
 
-        validation.extend(class_rows[:n_val])
-        test.extend(class_rows[n_val:n_val + n_test])
-        train_pool[relation] = class_rows[n_val + n_test:]
+        valid.extend(class_rows[:n_valid])
+        test.extend(class_rows[n_valid:n_valid + n_test])
+        train_pool[relation] = class_rows[n_valid + n_test:]
 
-    rng.shuffle(validation)
+    rng.shuffle(valid)
     rng.shuffle(test)
-    return train_pool, validation, test
+    return train_pool, valid, test
 
 
 def build_lt100(train_pool: dict[int, list[Row]], seed: int) -> tuple[list[Row], dict[int, int]]:
@@ -100,7 +109,7 @@ def write_mapping(path: Path, mapping: dict[int, int], source_counts: Counter) -
         )
 
 
-def build_dataset(name: str, pair_path: Path, output_root: Path, seed: int) -> None:
+def build_dataset(name: str, pair_path: Path, smiles_path: Path, output_root: Path, seed: int) -> None:
     rows = read_pairs(pair_path)
     source_counts = Counter(relation for _, relation, _ in rows)
     minimum_count = MIN_VAL + MIN_TEST + MIN_TRAIN
@@ -108,35 +117,48 @@ def build_dataset(name: str, pair_path: Path, output_root: Path, seed: int) -> N
     mapping = {source: target for target, source in enumerate(kept_relations)}
     remapped = [(d1, mapping[relation], d2) for d1, relation, d2 in rows if relation in mapping]
 
-    train_pool, validation, test = split_by_class(remapped, seed)
+    train_pool, valid, test = split_by_class(remapped, seed)
     train, train_counts = build_lt100(train_pool, seed + 100)
 
     output_dir = output_root / name / f"LT100_seed{seed}"
     output_dir.mkdir(parents=True, exist_ok=True)
-    write_pairs(output_dir / "ddi_training1.csv", train)
-    write_pairs(output_dir / "ddi_validation1.csv", validation)
-    write_pairs(output_dir / "ddi_test1.csv", test)
+    write_pairs(output_dir / "train.csv", train)
+    write_pairs(output_dir / "valid.csv", valid)
+    write_pairs(output_dir / "test.csv", test)
     write_mapping(output_dir / "label_mapping.csv", mapping, source_counts)
+    shutil.copyfile(smiles_path, output_dir / "drug_smiles.csv")
 
     actual_if = max(train_counts.values()) / min(train_counts.values())
     print(
-        f"[{name}] train={len(train)} val={len(validation)} test={len(test)} "
+        f"[{name}] train={len(train)} valid={len(valid)} test={len(test)} "
         f"classes={len(mapping)} IF={actual_if:.2f} output={output_dir}"
     )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--datasets", nargs="+", choices=DEFAULT_PAIRS, default=list(DEFAULT_PAIRS))
+    parser.add_argument("--datasets", nargs="+", choices=DEFAULT_DATASETS, default=list(DEFAULT_DATASETS))
     parser.add_argument("--output-root", type=Path, default=Path("./data/controlled_longtail"))
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--deng-pairs", type=Path, default=DEFAULT_PAIRS["deng"])
-    parser.add_argument("--ryu-pairs", type=Path, default=DEFAULT_PAIRS["ryu"])
+    parser.add_argument("--deng-pairs", type=Path, default=DEFAULT_DATASETS["deng"]["pairs"])
+    parser.add_argument("--deng-smiles", type=Path, default=DEFAULT_DATASETS["deng"]["smiles"])
+    parser.add_argument("--ryu-pairs", type=Path, default=DEFAULT_DATASETS["ryu"]["pairs"])
+    parser.add_argument("--ryu-smiles", type=Path, default=DEFAULT_DATASETS["ryu"]["smiles"])
     args = parser.parse_args()
 
-    pair_paths = {"deng": args.deng_pairs, "ryu": args.ryu_pairs}
+    paths = {
+        "deng": (args.deng_pairs, args.deng_smiles),
+        "ryu": (args.ryu_pairs, args.ryu_smiles),
+    }
     for dataset in args.datasets:
-        build_dataset(dataset, pair_paths[dataset], args.output_root, args.seed)
+        pair_path, smiles_path = paths[dataset]
+        build_dataset(
+            DEFAULT_DATASETS[dataset]["name"],
+            pair_path,
+            smiles_path,
+            args.output_root,
+            args.seed,
+        )
 
 
 if __name__ == "__main__":
